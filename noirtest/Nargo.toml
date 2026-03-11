@@ -1,0 +1,6 @@
+[package]
+name = "noirtest"
+type = "bin"
+authors = [""]
+
+[dependencies]
