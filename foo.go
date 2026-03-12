@@ -8,7 +8,7 @@ import (
 	"noirgnark/internal/acir"
 )
 
-func TestDecode() {
+func TestDecode() *acir.Program {
 	fmt.Println("inital commit")
 
 	comp, err := noirgo.Compile("noirtest")
@@ -17,6 +17,7 @@ func TestDecode() {
 	}
 
 	fmt.Println(comp.ACIR.JSON)
-	acir.DecodeAcir(comp.ACIR.JSON)
+	p := acir.DecodeAcir(comp.ACIR.JSON)
+	return p
 
 }
