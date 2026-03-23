@@ -6,7 +6,7 @@ import (
 	"noirgnark/internal/acir"
 )
 
-func BuildR1CS(c string) {
+func BuildInitialWitness(c string) {
 	p := acir.DecodeAcir(c)
 	// im only handling main for now.
 	fn := p.Functions[0]

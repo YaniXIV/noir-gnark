@@ -2,6 +2,10 @@ github.com/BurntSushi/toml v1.6.0 h1:dRaEfpa2VI55EwlIW72hMRHdWouJeRF7TPYhI+AUQjk
 github.com/BurntSushi/toml v1.6.0/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2lLoLwho=
 github.com/YaniXIV/noir-go v0.0.0-20260311130748-f61328117545 h1:RZ5x4+JZKYZxdeHE1I/J1imwH7+N2RjfgC7sq0tKcRE=
 github.com/YaniXIV/noir-go v0.0.0-20260311130748-f61328117545/go.mod h1:w5qS30ZK+J3iTDT18UME0JaOp39mCFn5SZQE76JgYiE=
+github.com/YaniXIV/noir-go v0.0.0-20260322175753-17af877117a5 h1:VB941M/bvjI3dAkU7f3Uwj2zhQqtBws/1H3eAMFkCZw=
+github.com/YaniXIV/noir-go v0.0.0-20260322175753-17af877117a5/go.mod h1:w5qS30ZK+J3iTDT18UME0JaOp39mCFn5SZQE76JgYiE=
+github.com/YaniXIV/noir-go v0.0.0-20260322181750-b915ed76273a h1:eYbbyqgFT9wmTDn/mHASxT8I4I+liXWSS9n0cgm+PXI=
+github.com/YaniXIV/noir-go v0.0.0-20260322181750-b915ed76273a/go.mod h1:w5qS30ZK+J3iTDT18UME0JaOp39mCFn5SZQE76JgYiE=
 github.com/bits-and-blooms/bitset v1.24.0 h1:H4x4TuulnokZKvHLfzVRTHJfFfnHEeSYJizujEZvmAM=
 github.com/bits-and-blooms/bitset v1.24.0/go.mod h1:7hO7Gc7Pp1vODcmWvKMRA9BNmbv6a/7QIWpPxHddWR8=
 github.com/blang/semver/v4 v4.0.0 h1:1PFHFE6yCCTv8C1TeyNNarDzntLi7wMI5i/pzqYIsAM=

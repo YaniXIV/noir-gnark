@@ -2,10 +2,9 @@ module noirgnark
 
 go 1.24.4
 
-require github.com/YaniXIV/noir-go v0.0.0-20260311130748-f61328117545
-
 require (
 	github.com/BurntSushi/toml v1.6.0 // indirect
+	github.com/YaniXIV/noir-go v0.0.0-20260322181750-b915ed76273a // indirect
 	github.com/bits-and-blooms/bitset v1.24.0 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/consensys/gnark v0.14.0 // indirect
