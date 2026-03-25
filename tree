@@ -1,0 +1,51 @@
+.
+├── Acirout
+├── go.mod
+├── go.sum
+├── internal
+│   ├── acir
+│   │   ├── decode.go
+│   │   └── types.go
+│   └── sparse_r1cs
+│       ├── assertzero.go
+│       └── witness.go
+├── noir-gnark_test.go
+├── out
+├── out2
+├── README.md
+├── testdata
+│   ├── circuit_constraints_20k
+│   │   ├── Nargo.toml
+│   │   ├── Prover.toml
+│   │   ├── src
+│   │   │   └── main.nr
+│   │   └── target
+│   │       └── circuit_constraints_20k.json
+│   ├── circuit_int_heavy_5k
+│   │   ├── Nargo.toml
+│   │   ├── Prover.toml
+│   │   └── src
+│   │       └── main.nr
+│   ├── circuit_small
+│   │   ├── Nargo.toml
+│   │   ├── Prover.toml
+│   │   └── src
+│   │       └── main.nr
+│   └── circuit_wide_4k
+│       ├── Nargo.toml
+│       ├── Prover.toml
+│       ├── src
+│       │   └── main.nr
+│       └── target
+│           └── circuit_wide_4k.json
+├── tmp
+│   ├── 99-6253
+│   ├── 99-6253-prompt
+│   ├── 99-6382
+│   ├── 99-6382-prompt
+│   ├── 99-6605
+│   ├── 99-6605-prompt
+│   └── 99-state
+└── tree
+
+16 directories, 33 files

@@ -4,91 +4,147 @@ import (
 	"fmt"
 	"math/big"
 
-	fr "github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark/constraint"
 	cs "github.com/consensys/gnark/constraint/bn254"
 	"noirgnark/internal/acir"
 )
 
-// TODO: Make this a method for acir.ACIR.
-// qL⋅xa + qR⋅xb + qO⋅xc + qM⋅(xa⋅xb) + qC == 0
-// (qL)i · xai + (qR)i · xbi + (qO)i · xci + (qM)i · (xai xbi ) + (qC)i = 0
-func BuildSparseR1CS(circuit acir.ACIR, values fr_bn254.Vector) (*cs_bn254.SparseR1CS, fr_bn254.Vector, fr_bn254.Vector) {
-	sparseR1CS := cs_bn254.NewSparseR1CS(int(circuit.CurrentWitness) - 1)
-
-	publicVariables, secretVariables, indexMap := backend.HandleValues(circuit, sparseR1CS, values)
-	handleOpcodes(circuit, sparseR1CS, indexMap)
-
-	return sparseR1CS, publicVariables, secretVariables
+// fieldToBigInt converts a [32]byte big-endian field element to *big.Int.
+func fieldToBigInt(fe acir.FieldElement) *big.Int {
+	return new(big.Int).SetBytes(fe[:])
 }
 
-// TODO:
-// (qL)i · xai + (qR)i · xbi + (qO)i · xci + (qM)i · (xai xbi ) + (qC)i = 0
-func handleAssertZeroOpcode(a *acir.ACIR) {
-
+func ensureGenericSparseBlueprint(r1cs *cs.SparseR1CS) constraint.BlueprintID {
+	for i, blueprint := range r1cs.Blueprints {
+		if _, ok := blueprint.(*constraint.BlueprintGenericSparseR1C[constraint.U64]); ok {
+			return constraint.BlueprintID(i)
+		}
+	}
+	return r1cs.AddBlueprint(&constraint.BlueprintGenericSparseR1C[constraint.U64]{})
 }
 
-func handleArithmeticOpcode(a *acir_opcode.ArithmeticOpcode, sparseR1CS constraint.SparseR1CS, indexMap map[string]int) {
-	var xa, xb, xc int
-	var qL, qR, qO, qC, qM1, qM2 constraint.Coeff
+func coeffIDFromFieldElement(r1cs *cs.SparseR1CS, fe acir.FieldElement) uint32 {
+	return r1cs.AddCoeff(r1cs.FromInterface(fieldToBigInt(fe)))
+}
 
-	// Case qM⋅(xa⋅xb)
-	if len(a.MulTerms) != 0 {
-		mulTerm := a.MulTerms[0]
-		qM1 = sparseR1CS.FromInterface(mulTerm.Coefficient)
-		qM2 = sparseR1CS.FromInterface(1)
-		xa = indexMap[fmt.Sprint(int(mulTerm.MultiplicandIndex))]
-		xb = indexMap[fmt.Sprint(int(mulTerm.MultiplierIndex))]
+func constantCoeffID(r1cs *cs.SparseR1CS, fe acir.FieldElement) uint32 {
+	term := r1cs.MakeTerm(r1cs.FromInterface(fieldToBigInt(fe)), 0)
+	term.MarkConstant()
+	return uint32(term.CoeffID())
+}
+
+// AddAssertZeroConstraint translates one AssertZero opcode into a gnark SparseR1C
+// and adds it to the r1cs. Uses witnessMap to resolve Noir witness indices to gnark var IDs.
+func AddAssertZeroConstraint(r1cs *cs.SparseR1CS, op *acir.AssertZero, witnessMap map[int]int) {
+	blueprint := ensureGenericSparseBlueprint(r1cs)
+
+	var (
+		xa = uint32(witnessMap[-1])
+		xb = uint32(witnessMap[-1])
+		xc = uint32(witnessMap[-1])
+		qL = constantCoeffID(r1cs, acir.FieldElement{})
+		qR = constantCoeffID(r1cs, acir.FieldElement{})
+		qO = constantCoeffID(r1cs, acir.FieldElement{})
+		qM = constantCoeffID(r1cs, acir.FieldElement{})
+		qC = constantCoeffID(r1cs, op.QC)
+	)
+
+	if len(op.MulTerms) > 0 {
+		mt := op.MulTerms[0]
+		xa = uint32(witnessMap[mt.LHS])
+		xb = uint32(witnessMap[mt.RHS])
+		qM = coeffIDFromFieldElement(r1cs, mt.Coeff)
 	}
 
-	// Case qO⋅xc
-	if len(a.SimpleTerms) == 1 {
-		qOwOTerm := a.SimpleTerms[0]
-		qO = sparseR1CS.FromInterface(qOwOTerm.Coefficient)
-		xc = indexMap[fmt.Sprint(int(qOwOTerm.VariableIndex))]
+	if len(op.MulTerms) == 0 {
+		if len(op.LinearCombinations) > 0 {
+			xa = uint32(witnessMap[op.LinearCombinations[0].Witness])
+			qL = coeffIDFromFieldElement(r1cs, op.LinearCombinations[0].Coeff)
+		}
+		if len(op.LinearCombinations) > 1 {
+			xb = uint32(witnessMap[op.LinearCombinations[1].Witness])
+			qR = coeffIDFromFieldElement(r1cs, op.LinearCombinations[1].Coeff)
+		}
+		if len(op.LinearCombinations) > 2 {
+			xc = uint32(witnessMap[op.LinearCombinations[2].Witness])
+			qO = coeffIDFromFieldElement(r1cs, op.LinearCombinations[2].Coeff)
+		}
+	} else {
+		for _, lc := range op.LinearCombinations {
+			switch {
+			case qL == constraint.CoeffIdZero && lc.Witness == int(xa):
+				qL = coeffIDFromFieldElement(r1cs, lc.Coeff)
+			case qR == constraint.CoeffIdZero && lc.Witness == int(xb):
+				qR = coeffIDFromFieldElement(r1cs, lc.Coeff)
+			case qO == constraint.CoeffIdZero:
+				xc = uint32(witnessMap[lc.Witness])
+				qO = coeffIDFromFieldElement(r1cs, lc.Coeff)
+			case qL == constraint.CoeffIdZero:
+				qL = coeffIDFromFieldElement(r1cs, lc.Coeff)
+			case qR == constraint.CoeffIdZero:
+				qR = coeffIDFromFieldElement(r1cs, lc.Coeff)
+			}
+		}
+
+		// Noir commonly emits the qL/qR witnesses as original witness indices.
+		// If they matched the mul wires by witness index, the checks above may not have
+		// triggered because xa/xb are gnark IDs. Re-run against the mul witnesses directly.
+		if len(op.MulTerms) > 0 {
+			mt := op.MulTerms[0]
+			for _, lc := range op.LinearCombinations {
+				switch {
+				case qL == constraint.CoeffIdZero && lc.Witness == mt.LHS:
+					qL = coeffIDFromFieldElement(r1cs, lc.Coeff)
+				case qR == constraint.CoeffIdZero && lc.Witness == mt.RHS:
+					qR = coeffIDFromFieldElement(r1cs, lc.Coeff)
+				case qO == constraint.CoeffIdZero:
+					xc = uint32(witnessMap[lc.Witness])
+					qO = coeffIDFromFieldElement(r1cs, lc.Coeff)
+				}
+			}
+		}
 	}
 
-	// Case qL⋅xa + qR⋅xb
-	if len(a.SimpleTerms) == 2 {
-		// qL⋅xa
-		qLwLTerm := a.SimpleTerms[0]
-		qL = sparseR1CS.FromInterface(qLwLTerm.Coefficient)
-		xa = indexMap[fmt.Sprint(int(qLwLTerm.VariableIndex))]
-		// qR⋅xb
-		qRwRTerm := a.SimpleTerms[1]
-		qR = sparseR1CS.FromInterface(qRwRTerm.Coefficient)
-		xb = indexMap[fmt.Sprint(int(qRwRTerm.VariableIndex))]
+	r1cs.AddSparseR1C(constraint.SparseR1C{
+		XA: xa,
+		XB: xb,
+		XC: xc,
+		QL: qL,
+		QR: qR,
+		QO: qO,
+		QM: qM,
+		QC: qC,
+	}, blueprint)
+}
+
+// BuildSparseR1CS is the top-level entry point.
+// Takes raw ACIR JSON, decodes it, builds witness map, translates all AssertZero opcodes.
+// Returns the complete SparseR1CS ready for gnark proving.
+func BuildSparseR1CS(acirJSON []byte) (*cs.SparseR1CS, map[int]int, error) {
+	program, err := acir.DecodeProgram(acirJSON)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	// Case qL⋅xa + qR⋅xb + qO⋅xc
-	if len(a.SimpleTerms) == 3 {
-		// qL⋅xa
-		qLwLTerm := a.SimpleTerms[0]
-		qL = sparseR1CS.FromInterface(qLwLTerm.Coefficient)
-		xa = indexMap[fmt.Sprint(int(qLwLTerm.VariableIndex))]
-		// qR⋅xb
-		qRwRTerm := a.SimpleTerms[1]
-		qR = sparseR1CS.FromInterface(qRwRTerm.Coefficient)
-		xb = indexMap[fmt.Sprint(int(qRwRTerm.VariableIndex))]
-		// qO⋅xc
-		qOwOTerm := a.SimpleTerms[2]
-		qO = sparseR1CS.FromInterface(qOwOTerm.Coefficient)
-		xc = indexMap[fmt.Sprint(int(qOwOTerm.VariableIndex))]
+	var receiver acir.Function
+	mainFn, err := receiver.MainFunction(program)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	// Add the qC term
-	qC = sparseR1CS.FromInterface(a.QC)
+	r1cs, witnessMap := BuildWitnessMap(mainFn)
+	ensureGenericSparseBlueprint(r1cs)
 
-	K := sparseR1CS.MakeTerm(&qC, 0)
-	K.MarkConstant()
-
-	constraint := constraint.SparseR1C{
-		L: sparseR1CS.MakeTerm(&qL, xa),
-		R: sparseR1CS.MakeTerm(&qR, xb),
-		O: sparseR1CS.MakeTerm(&qO, xc),
-		M: [2]constraint.Term{sparseR1CS.MakeTerm(&qM1, xa), sparseR1CS.MakeTerm(&qM2, xb)},
-		K: K.CoeffID(),
+	for _, op := range mainFn.Opcodes {
+		if op.AssertZero == nil {
+			continue
+		}
+		AddAssertZeroConstraint(r1cs, op.AssertZero, witnessMap)
 	}
 
-	sparseR1CS.AddConstraint(constraint)
+	if r1cs.GetNbConstraints() == 0 {
+		return nil, nil, fmt.Errorf("no AssertZero constraints found in main function")
+	}
+
+	return r1cs, witnessMap, nil
 }

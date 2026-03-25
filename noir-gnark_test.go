@@ -41,7 +41,21 @@ func TestFoobar(t *testing.T) {
 func getValidOpcodes(opcodes []acir.Opcode) {
 	for _, opcode := range opcodes {
 		if opcode.AssertZero != nil {
-			fmt.Println(opcode.AssertZero)
+
+			az := opcode.AssertZero
+			fmt.Printf("AssertZero\n")
+			fmt.Printf("      QC: %x\n", az.QC)
+			fmt.Printf("      MulTerms (%d):\n", len(az.MulTerms))
+			for j, mt := range az.MulTerms {
+				fmt.Printf("        [%d] coeff=%x  lhs=%d  rhs=%d\n", j, mt.Coeff, mt.LHS, mt.RHS)
+			}
+			fmt.Printf("      LinearCombinations (%d):\n", len(az.LinearCombinations))
+			for j, lc := range az.LinearCombinations {
+				fmt.Printf("        [%d] coeff=%x  witness=%d\n", j, lc.Coeff, lc.Witness)
+			}
+		} else {
+			fmt.Printf("(unhandled/nil opcode)\n")
+
 		}
 
 	}

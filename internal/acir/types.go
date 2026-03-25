@@ -3,12 +3,7 @@ package acir
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/YaniXIV/noir-go"
 )
-
-type ACIR struct {
-	noirgo.ACIR
-}
 
 type Program struct {
 	Functions              []Function `json:"functions"`
@@ -16,16 +11,15 @@ type Program struct {
 }
 
 type Function struct {
-	FunctionName        string          `json:"function_name"`
-	CurrentWitnessIndex int             `json:"current_witness_index"`
-	Opcodes             []Opcode        `json:"opcodes"`
-	PrivateParameters   []int           `json:"private_parameters"`
-	PublicParameters    []int           `json:"public_parameters"`
-	ReturnValues        []int           `json:"return_values"`
-	AssertMessages      []AssertMessage `json:"assert_messages"`
+	FunctionName        string      `json:"function_name"`
+	CurrentWitnessIndex int         `json:"current_witness_index"`
+	Opcodes             []RawOpcode `json:"opcodes"`
+	PrivateParameters   []int       `json:"private_parameters"`
+	PublicParameters    []int       `json:"public_parameters"`
+	ReturnValues        []int       `json:"return_values"`
 }
 
-type AssertMessage struct{}
+type RawOpcode = Opcode
 
 type Opcode struct {
 	AssertZero *AssertZero `json:"AssertZero,omitempty"`
@@ -56,17 +50,17 @@ func (m *MulTerm) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	if len(raw) != 3 {
-		return fmt.Errorf("MulTerm: expected 3 elements, got %d", len(raw))
+		return fmt.Errorf("mul term: expected 3 elements, got %d", len(raw))
 	}
 
 	if err := json.Unmarshal(raw[0], &m.Coeff); err != nil {
-		return fmt.Errorf("MulTerm coeff: %w", err)
+		return fmt.Errorf("mul term coeff: %w", err)
 	}
 	if err := json.Unmarshal(raw[1], &m.LHS); err != nil {
-		return fmt.Errorf("MulTerm lhs: %w", err)
+		return fmt.Errorf("mul term lhs: %w", err)
 	}
 	if err := json.Unmarshal(raw[2], &m.RHS); err != nil {
-		return fmt.Errorf("MulTerm rhs: %w", err)
+		return fmt.Errorf("mul term rhs: %w", err)
 	}
 
 	return nil
@@ -78,14 +72,31 @@ func (l *LinearCombination) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	if len(raw) != 2 {
-		return fmt.Errorf("LinearCombination: expected 2 elements, got %d", len(raw))
+		return fmt.Errorf("linear combination: expected 2 elements, got %d", len(raw))
 	}
 
 	if err := json.Unmarshal(raw[0], &l.Coeff); err != nil {
-		return fmt.Errorf("LinearCombination coeff: %w", err)
+		return fmt.Errorf("linear combination coeff: %w", err)
 	}
 	if err := json.Unmarshal(raw[1], &l.Witness); err != nil {
-		return fmt.Errorf("LinearCombination witness: %w", err)
+		return fmt.Errorf("linear combination witness: %w", err)
+	}
+
+	return nil
+}
+
+func (op *Opcode) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	if payload, ok := raw["AssertZero"]; ok {
+		var assertZero AssertZero
+		if err := json.Unmarshal(payload, &assertZero); err != nil {
+			return fmt.Errorf("AssertZero: %w", err)
+		}
+		op.AssertZero = &assertZero
 	}
 
 	return nil
